@@ -32,6 +32,8 @@ const connectCamera = async (video, { zoom = 0 } = {}) => {
       const settings = track.getSettings();
       console.log("Camera settings", settings);
       console.log("Camera capa", track.getCapabilities());
+      const { width, height } = settings;
+      Object.assign(video, { width: (video.height * width) / height });
       if (zoom && "zoom" in settings) {
         const {
           zoom: { max: maxZoom, min: minZoom, step: zoomStep },
@@ -76,7 +78,9 @@ const capture = async (video, canvas) => {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   ctx.filter = "contrast(120%) grayscale(100%)";
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const { width, height } = video;
+  Object.assign(canvas, { width, height });
+  ctx.drawImage(video, 0, 0, width, height);
 };
 
 export const QrVideo = ({
@@ -124,7 +128,7 @@ export const QrVideo = ({
       else console.log("stopping the loop");
     };
     const timer = setTimeout(() => {
-      connectCamera(video, { zoom: 0.3 }).catch(console.error);
+      connectCamera(video, { zoom: 0.6 }).catch(console.error);
       scanningLoop();
     }, 100);
     return () => {

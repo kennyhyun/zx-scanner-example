@@ -13,8 +13,25 @@ const canvasMap = new Map();
 const result = new Map();
 
 let scanned = false;
+const debounceTimeMs = 1000;
+let retryCount = 0;
 const tryScan = debounce(async cbExecuted => {
   if (scanned) {
+    return;
+  }
+  if (typeof window !== undefined && !window.ZXing) {
+    retryCount += 1;
+    if (retryCount > 5) {
+      console.error("Could not find ZXing");
+      return;
+    }
+    console.error(
+      "Retring scan after",
+      (debounceTimeMs * retryCount) / 1000,
+      "ms"
+    );
+    await new Promise(res => setTimeout(res, debounceTimeMs * retryCount));
+    tryScan(cbExecuted);
     return;
   }
   cbExecuted(1);
@@ -31,7 +48,7 @@ const tryScan = debounce(async cbExecuted => {
   }, Promise.resolve());
   console.timeEnd(message);
   cbExecuted(2);
-}, 1000);
+}, debounceTimeMs);
 
 export const ImageScanner = () => {
   const [step, setStep] = React.useState(0);

@@ -16,6 +16,7 @@ if (typeof window !== "undefined") {
     decodeCallback,
   };
   window.Module = {
+    locateFile: () => `${PUBLIC_URL}/zxing.wasm`,
     onRuntimeInitialized: function() {
       window.ZXing = window.Module;
       window.zXingContext.decodePtr = window.ZXing.addFunction(
