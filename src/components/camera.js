@@ -122,10 +122,10 @@ const connectCamera = async (video, { zoom = 0 } = {}) => {
 const capture = async (video, canvas) => {
   if (!video) return;
   if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  ctx.filter = "contrast(120%) grayscale(100%)";
   const { width, height } = video;
   Object.assign(canvas, { width, height });
+  const ctx = canvas.getContext("2d");
+  ctx.filter = "contrast(120%) grayscale(100%)";
   ctx.drawImage(video, 0, 0, width, height);
 };
 
