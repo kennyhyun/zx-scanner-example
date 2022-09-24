@@ -15,62 +15,108 @@ const hasGetUserMedia = () => {
   );
 };
 
+const context = { cameras: [] };
+
+const toggleCamera = ({ video, zoom }) => {
+  const { cameras, current } = context;
+  if (!video.srcObject || !current) {
+    console.log("video is not initialised, try later");
+    return;
+  }
+  const { deviceId } = current;
+  const idx = cameras.findIndex(i => i.deviceId === deviceId);
+  if (idx < 0) {
+    console.error("current camera is invalid");
+    return;
+  }
+  const newIndex = (idx + 1) % cameras.length;
+  context.current = context.cameras[newIndex];
+  openStream({
+    cameraInfo: context.current,
+    getUserMedia: context.getUserMedia,
+    video,
+    zoom,
+  });
+};
+
+const handleMediaStream = async (stream, { video, zoom }) => {
+  try {
+    console.log("Camera is loaded", stream);
+    video.srcObject = stream;
+    const [track] = stream.getVideoTracks();
+    const settings = track.getSettings();
+    console.log("Camera settings", settings);
+    console.log("Camera capa", track.getCapabilities());
+    const { width, height } = settings;
+    Object.assign(video, { width: (video.height * width) / height });
+    if (zoom && "zoom" in settings) {
+      const {
+        zoom: { max: maxZoom, min: minZoom, step: zoomStep },
+      } = track.getCapabilities();
+      const getZoomValue = num => {
+        const zoomValue = minZoom + num * zoomStep;
+        return Math.min(zoomValue, maxZoom);
+      };
+      const steps = (maxZoom - minZoom) / zoomStep;
+      const step = parseInt(steps * zoom, 10);
+      console.log(
+        `Setting zoom value(${step}) out of ${steps}`,
+        getZoomValue(step)
+      );
+      track.applyConstraints({ advanced: [{ zoom: getZoomValue(step) }] });
+    }
+  } catch (e) {
+    console.error("Error with handling video:", e);
+  }
+};
+
+const openStream = async ({ cameraInfo, getUserMedia, video, zoom }) => {
+  const constraints = {
+    video: {
+      zoom: !!zoom,
+      deviceId: { exact: cameraInfo.deviceId },
+    },
+    audio: false,
+  };
+  try {
+    const stream = await getUserMedia(constraints);
+    return handleMediaStream(stream, { video, zoom });
+  } catch (e) {
+    console.log(e.message);
+    const stream = await new Promise((res, rej) => {
+      getUserMedia(constraints, res, rej);
+    });
+    return handleMediaStream(stream, { video, zoom });
+  }
+};
+
 const connectCamera = async (video, { zoom = 0 } = {}) => {
   if (!hasGetUserMedia()) return;
   const { navigator } = window;
-  const getUserMediaFunc =
+  let getUserMedia =
     navigator.getUserMedia ||
     navigator.webkitGetUserMedia ||
     navigator.mozGetUserMedia ||
     navigator.msGetUserMedia;
+  if (getUserMedia) getUserMedia = getUserMedia.bind(navigator);
 
-  const handleMediaStream = async stream => {
-    try {
-      console.log("Camera is loaded", stream);
-      video.srcObject = stream;
-      const [track] = stream.getVideoTracks();
-      const settings = track.getSettings();
-      console.log("Camera settings", settings);
-      console.log("Camera capa", track.getCapabilities());
-      const { width, height } = settings;
-      Object.assign(video, { width: (video.height * width) / height });
-      if (zoom && "zoom" in settings) {
-        const {
-          zoom: { max: maxZoom, min: minZoom, step: zoomStep },
-        } = track.getCapabilities();
-        const getZoomValue = num => {
-          const zoomValue = minZoom + num * zoomStep;
-          return Math.min(zoomValue, maxZoom);
-        };
-        const steps = (maxZoom - minZoom) / zoomStep;
-        const step = parseInt(steps * zoom, 10);
-        console.log(
-          `Setting zoom value(${step}) out of ${steps}`,
-          getZoomValue(step)
-        );
-        track.applyConstraints({ advanced: [{ zoom: getZoomValue(step) }] });
-      }
-    } catch (e) {
-      console.error("Error with handling video:", e);
-    }
-  };
-
-  const constraints = {
-    video: { zoom: !!zoom },
-    audio: false,
-  };
-  try {
-    const localMediaStream = await navigator[getUserMediaFunc.name](
-      constraints
-    );
-    return handleMediaStream(localMediaStream);
-  } catch (e) {
-    console.log(e.message);
-    const stream = await new Promise((res, rej) => {
-      navigator[getUserMediaFunc.name](constraints, res, rej);
-    });
-    return handleMediaStream(stream);
+  if (navigator.mediaDevices) {
+    ({ getUserMedia } = navigator.mediaDevices);
+    getUserMedia = getUserMedia.bind(navigator.mediaDevices);
+    context.getUserMedia = getUserMedia;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter(i => i.kind === "videoinput");
+    context.cameras = cameras;
+    console.log("cameras:", cameras);
+    context.current = context.cameras[1];
   }
+
+  return openStream({
+    cameraInfo: context.current,
+    getUserMedia,
+    video,
+    zoom,
+  });
 };
 
 const capture = async (video, canvas) => {
@@ -91,6 +137,7 @@ export const QrVideo = ({
   scanningIntervalMs = 100,
   setCanvas = () => {},
   result = { code: "", error: 0 },
+  zoom = 0.6,
 }) => {
   const scrollRef = React.useRef(null);
   const canvasRef = React.useRef(null);
@@ -128,7 +175,7 @@ export const QrVideo = ({
       else console.log("stopping the loop");
     };
     const timer = setTimeout(() => {
-      connectCamera(video, { zoom: 0.6 }).catch(console.error);
+      connectCamera(video, { zoom }).catch(console.error);
       scanningLoop();
     }, 100);
     return () => {
@@ -158,7 +205,12 @@ export const QrVideo = ({
   return (
     <>
       <Box sx={{ width, height }}>
-        <video ref={videoRef} {...{ width, height }} autoPlay></video>
+        <video
+          ref={videoRef}
+          {...{ width, height }}
+          autoPlay
+          onClick={() => toggleCamera({ video: videoRef.current, zoom })}
+        ></video>
       </Box>
       <Box sx={{ height, display: "flex" }}>
         <canvas ref={canvasRef} {...{ width, height }}></canvas>
