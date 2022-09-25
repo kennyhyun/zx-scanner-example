@@ -7,6 +7,9 @@ import { scanCanvas } from "../controller/scan";
 const hasGetUserMedia = () => {
   if (typeof window === "undefined") return false;
   const { navigator = {} } = window;
+  if (navigator.mediaDevices?.getUserMedia) {
+    return true;
+  }
   return !!(
     navigator.getUserMedia ||
     navigator.webkitGetUserMedia ||
@@ -36,7 +39,7 @@ const toggleCamera = ({ video, zoom }) => {
     getUserMedia: context.getUserMedia,
     video,
     zoom,
-  });
+  }).catch(e => console.error(e.message));
 };
 
 const handleMediaStream = async (stream, { video, zoom }) => {
@@ -74,7 +77,9 @@ const openStream = async ({ cameraInfo = {}, getUserMedia, video, zoom }) => {
   const constraints = {
     video: {
       zoom: !!zoom,
-      deviceId: { exact: cameraInfo.deviceId },
+      ...(cameraInfo.deviceId
+        ? { deviceId: { exact: cameraInfo.deviceId } }
+        : {}),
     },
     audio: false,
   };
@@ -83,6 +88,9 @@ const openStream = async ({ cameraInfo = {}, getUserMedia, video, zoom }) => {
     return handleMediaStream(stream, { video, zoom });
   } catch (e) {
     console.log(e.message);
+    if (e.message.includes("Permission denied")) {
+      throw e;
+    }
     const stream = await new Promise((res, rej) => {
       getUserMedia(constraints, res, rej);
     });
@@ -144,6 +152,7 @@ export const QrVideo = ({
   const videoRef = React.useRef(null);
   const { current: context } = React.useRef({ scanned: [], counter: 0 });
   const [scanned, setScanned] = React.useState(0);
+  const [errorMessage, setErrorMessage] = React.useState("");
   const scrollTo = () => {
     const { current: node } = scrollRef;
     if (node) {
@@ -174,8 +183,13 @@ export const QrVideo = ({
       if (!stop) scanningLoop();
       else console.log("stopping the loop");
     };
-    const timer = setTimeout(() => {
-      connectCamera(video, { zoom }).catch(console.error);
+    const timer = setTimeout(async () => {
+      await connectCamera(video, { zoom }).catch(e => {
+        console.error(e.message);
+        if (e.message.includes("Permission denied")) {
+          setErrorMessage(e.message);
+        }
+      });
       scanningLoop();
     }, 100);
     return () => {
@@ -185,10 +199,11 @@ export const QrVideo = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!hasGetUserMedia()) {
+  if (!hasGetUserMedia() || errorMessage) {
     return (
-      <Typography sx={{ color: "alert" }}>
-        getUserMedia() is not supported in your browser. Please check{" "}
+      <Typography sx={{ color: "alert" }} component={"span"}>
+        <pre>{errorMessage}</pre>
+        Camera is not supported in your browser. Please check{" "}
         <pre>HTTPS=true</pre> {"if you are using debug server."}
       </Typography>
     );
