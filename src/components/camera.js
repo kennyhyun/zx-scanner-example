@@ -2,129 +2,41 @@ import Box from "@mui/material/Box";
 import Fade from "@mui/material/Fade";
 import Typography from "@mui/material/Typography";
 import React from "react";
+import { omit } from "ramda";
 import { scanCanvas } from "../controller/scan";
+import {
+  context as cameraContext,
+  hasCamera,
+  toggleCamera,
+  connectCameraToVideo,
+} from "../controller/camera";
 
-const hasGetUserMedia = () => {
-  if (typeof window === "undefined") return false;
-  const { navigator = {} } = window;
-  if (navigator.mediaDevices?.getUserMedia) {
-    return true;
-  }
-  return !!(
-    navigator.getUserMedia ||
-    navigator.webkitGetUserMedia ||
-    navigator.mozGetUserMedia ||
-    navigator.msGetUserMedia
+const CameraInfo = ({ info = {}, sx }) => {
+  const { settings, capability } = info;
+  const { deviceId = "" } = settings || {};
+  if (!deviceId) return <></>;
+  const deviceInfo =
+    cameraContext.cameras.find(i => i.deviceId === deviceId) || {};
+  return (
+    <Box sx={sx}>
+      <Typography>{deviceInfo.label}</Typography>
+      {JSON.stringify(omit(["deviceId", "groupId"], settings), null, 2)
+        .split("\n")
+        .map((line, i) => (
+          <Typography variant="caption" component="div" key={`${i} ${line}`}>
+            {line.substring(2, line.length).replace(/,$/, "")}
+          </Typography>
+        ))}
+      <Typography sx={{ mt: 2 }}>Capabilities</Typography>
+      {JSON.stringify(omit(["deviceId", "groupId"], capability), null, 2)
+        .split("\n")
+        .map((line, i) => (
+          <Typography variant="caption" component="div" key={`${i} ${line}`}>
+            {line.substring(2, line.length).replace(/,$/, "")}
+          </Typography>
+        ))}
+    </Box>
   );
-};
-
-const context = { cameras: [] };
-
-const toggleCamera = ({ video, zoom }) => {
-  const { cameras, current } = context;
-  if (!video.srcObject || !current) {
-    console.log("video is not initialised, try later");
-    return;
-  }
-  const { deviceId } = current;
-  const idx = cameras.findIndex(i => i.deviceId === deviceId);
-  if (idx < 0) {
-    console.error("current camera is invalid");
-    return;
-  }
-  const newIndex = (idx + 1) % cameras.length;
-  context.current = context.cameras[newIndex];
-  openStream({
-    cameraInfo: context.current,
-    getUserMedia: context.getUserMedia,
-    video,
-    zoom,
-  }).catch(e => console.error(e.message));
-};
-
-const handleMediaStream = async (stream, { video, zoom }) => {
-  try {
-    console.log("Camera is loaded", stream);
-    video.srcObject = stream;
-    const [track] = stream.getVideoTracks();
-    const settings = track.getSettings();
-    console.log("Camera settings", settings);
-    console.log("Camera capa", track.getCapabilities());
-    const { width, height } = settings;
-    Object.assign(video, { width: (video.height * width) / height });
-    if (zoom && "zoom" in settings) {
-      const {
-        zoom: { max: maxZoom, min: minZoom, step: zoomStep },
-      } = track.getCapabilities();
-      const getZoomValue = num => {
-        const zoomValue = minZoom + num * zoomStep;
-        return Math.min(zoomValue, maxZoom);
-      };
-      const steps = (maxZoom - minZoom) / zoomStep;
-      const step = parseInt(steps * zoom, 10);
-      console.log(
-        `Setting zoom value(${step}) out of ${steps}`,
-        getZoomValue(step)
-      );
-      track.applyConstraints({ advanced: [{ zoom: getZoomValue(step) }] });
-    }
-  } catch (e) {
-    console.error("Error with handling video:", e);
-  }
-};
-
-const openStream = async ({ cameraInfo = {}, getUserMedia, video, zoom }) => {
-  const constraints = {
-    video: {
-      zoom: !!zoom,
-      ...(cameraInfo.deviceId
-        ? { deviceId: { exact: cameraInfo.deviceId } }
-        : {}),
-    },
-    audio: false,
-  };
-  try {
-    const stream = await getUserMedia(constraints);
-    return handleMediaStream(stream, { video, zoom });
-  } catch (e) {
-    console.log(e.message);
-    if (e.message.includes("Permission denied")) {
-      throw e;
-    }
-    const stream = await new Promise((res, rej) => {
-      getUserMedia(constraints, res, rej);
-    });
-    return handleMediaStream(stream, { video, zoom });
-  }
-};
-
-const connectCamera = async (video, { zoom = 0 } = {}) => {
-  if (!hasGetUserMedia()) return;
-  const { navigator } = window;
-  let getUserMedia =
-    navigator.getUserMedia ||
-    navigator.webkitGetUserMedia ||
-    navigator.mozGetUserMedia ||
-    navigator.msGetUserMedia;
-  if (getUserMedia) getUserMedia = getUserMedia.bind(navigator);
-
-  if (navigator.mediaDevices) {
-    ({ getUserMedia } = navigator.mediaDevices);
-    getUserMedia = getUserMedia.bind(navigator.mediaDevices);
-    context.getUserMedia = getUserMedia;
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const cameras = devices.filter(i => i.kind === "videoinput");
-    context.cameras = cameras;
-    console.log("cameras:", cameras);
-    context.current = context.cameras[0];
-  }
-
-  return openStream({
-    cameraInfo: context.current,
-    getUserMedia,
-    video,
-    zoom,
-  });
 };
 
 const capture = async (video, canvas) => {
@@ -153,6 +65,7 @@ export const QrVideo = ({
   const { current: context } = React.useRef({ scanned: [], counter: 0 });
   const [scanned, setScanned] = React.useState(0);
   const [errorMessage, setErrorMessage] = React.useState("");
+  const [cameraInfo, setCameraInfo] = React.useState({});
   const scrollTo = () => {
     const { current: node } = scrollRef;
     if (node) {
@@ -184,13 +97,14 @@ export const QrVideo = ({
       else console.log("stopping the loop");
     };
     const timer = setTimeout(async () => {
-      await connectCamera(video, { zoom }).catch(e => {
+      const info = await connectCameraToVideo(video, { zoom }).catch(e => {
         console.error(e.message);
         if (e.message.includes("Permission denied")) {
           setErrorMessage(e.message);
         }
       });
       scanningLoop();
+      setCameraInfo(info || {});
     }, 100);
     return () => {
       stop = true;
@@ -199,7 +113,7 @@ export const QrVideo = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!hasGetUserMedia() || errorMessage) {
+  if (!hasCamera() || errorMessage) {
     return (
       <Typography sx={{ color: "alert" }} component={"span"}>
         <pre>{errorMessage}</pre>
@@ -220,13 +134,26 @@ export const QrVideo = ({
   };
   return (
     <>
-      <Box sx={{ width, height }}>
+      <Box sx={{ height, display: "flex" }}>
         <video
           ref={videoRef}
           {...{ width, height }}
           autoPlay
-          onClick={() => toggleCamera({ video: videoRef.current, zoom })}
+          onClick={async () => {
+            const info = await toggleCamera({
+              video: videoRef.current,
+              zoom,
+            }).catch(e => {
+              console.error(e.message);
+              return {};
+            });
+            setCameraInfo(info);
+          }}
         ></video>
+        <CameraInfo
+          info={cameraInfo}
+          sx={{ width, height, overflow: "auto" }}
+        />
       </Box>
       <Box sx={{ height, display: "flex" }}>
         <canvas ref={canvasRef} {...{ width, height }}></canvas>
