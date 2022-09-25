@@ -182,6 +182,7 @@ export const QrVideo = ({
       stop = true;
       if (timer) clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!hasGetUserMedia()) {

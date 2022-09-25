@@ -19,7 +19,7 @@ const tryScan = debounce(async cbExecuted => {
   if (scanned) {
     return;
   }
-  if (typeof window !== undefined && !window.ZXing) {
+  if (typeof window !== "undefined" && !window.ZXing) {
     retryCount += 1;
     if (retryCount > 5) {
       console.error("Could not find ZXing");
