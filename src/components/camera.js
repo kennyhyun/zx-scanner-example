@@ -70,7 +70,7 @@ const handleMediaStream = async (stream, { video, zoom }) => {
   }
 };
 
-const openStream = async ({ cameraInfo, getUserMedia, video, zoom }) => {
+const openStream = async ({ cameraInfo = {}, getUserMedia, video, zoom }) => {
   const constraints = {
     video: {
       zoom: !!zoom,
@@ -108,7 +108,7 @@ const connectCamera = async (video, { zoom = 0 } = {}) => {
     const cameras = devices.filter(i => i.kind === "videoinput");
     context.cameras = cameras;
     console.log("cameras:", cameras);
-    context.current = context.cameras[1];
+    context.current = context.cameras[0];
   }
 
   return openStream({
