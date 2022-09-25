@@ -1,7 +1,7 @@
 import debounce from "lodash.debounce";
 import React from "react";
 import { MasonryImageList } from "./list";
-import { ZXing } from "./zxing";
+import { ZXing } from "./zxing2";
 import { scanCanvas } from "../controller/scan";
 import QrCamera from "../components/camera";
 
