@@ -18,7 +18,7 @@ export const QrImage = ({
     Object.assign(canvas, { width, height });
     setCanvas(canvas);
     const ctx = canvas.getContext("2d");
-    ctx.filter = "brightness(100%) grayscale(100%)";
+    // ctx.filter = "brightness(100%) grayscale(100%)";
     ctx.drawImage(image, 0, 0);
   };
   const textStyle = {
