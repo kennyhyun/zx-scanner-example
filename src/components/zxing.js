@@ -2,6 +2,10 @@ import { Helmet } from "react-helmet";
 
 const { PUBLIC_URL } = process.env;
 
+// ZXing: global object from the zxing.js
+// zXingContext: global context for the library
+// Module : for the xzing.js library configuration
+
 if (typeof window !== "undefined") {
   window.ZXing = null;
   const decodeCallback = (ptr, len, resultIndex, resultCount) => {
