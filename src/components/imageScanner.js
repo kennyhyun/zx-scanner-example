@@ -41,11 +41,11 @@ const tryScan = debounce(async cbExecuted => {
   console.time(message);
   await [...canvasMap.keys()].reduce(async (p, canvas) => {
     await p;
-    const { code, error } = await scanCanvas(canvas).catch(e =>
+    const resp = await scanCanvas(canvas).catch(e =>
       e?.message ? { error: e.message } : e
     );
     const url = canvasMap.get(canvas);
-    result.set(url, { code, error });
+    result.set(url, resp);
   }, Promise.resolve());
   console.timeEnd(message);
   cbExecuted(2);
