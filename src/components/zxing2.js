@@ -7,6 +7,7 @@ const { PUBLIC_URL } = process.env;
 // Module : for the emscripten library configuration
 
 if (typeof window !== "undefined") {
+  window.ZXing = null;
   window.zXingContext = { format: "QRCode", pixmap: null };
 
   const wasmLocation = `${PUBLIC_URL}/zxing_reader.wasm`;
@@ -26,8 +27,8 @@ if (typeof window !== "undefined") {
   const waitForZXing = async () => {
     const { ZXing } = window;
     if (!ZXing) {
-      console.log("Waiting for ZXing", 10 * cnt);
-      await new Promise(res => setTimeout(res, 10 * cnt));
+      console.log("Waiting for ZXing", 100 * cnt);
+      await new Promise(res => setTimeout(res, 100 * cnt));
       cnt += 1;
       waitForZXing();
       return;
@@ -36,8 +37,6 @@ if (typeof window !== "undefined") {
     window.zXingContext.zxing = await ZXing(zxingConfig).catch(e => {
       console.error(e.message);
     });
-    window.ZXing = window.zXingContext.zxing;
-    console.log(window.ZXing);
   };
   waitForZXing();
 }
