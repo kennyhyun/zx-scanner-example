@@ -6,7 +6,6 @@ const drawRect = ({
   position: { bottomLeft, bottomRight, topLeft, topRight },
   canvas,
 }) => {
-  console.log("---drawRect", { bottomLeft, bottomRight, topLeft, topRight });
   const ctx = canvas.getContext("2d");
   ctx.beginPath();
   ctx.strokeStyle = "rgba(0, 255, 0, 0.5)";
@@ -14,6 +13,7 @@ const drawRect = ({
   ctx.lineTo(topRight.x, topRight.y);
   ctx.lineTo(bottomRight.x, bottomRight.y);
   ctx.lineTo(bottomLeft.x, bottomLeft.y);
+  ctx.lineTo(topLeft.x, topLeft.y);
   ctx.stroke();
 };
 
