@@ -37,6 +37,7 @@ const handleMediaStream = async (stream, { video, zoom }) => {
 const openStream = async ({ cameraInfo = {}, getUserMedia, video, zoom }) => {
   const constraints = {
     video: {
+      facingMode: "environment",
       zoom: !!zoom,
       ...(cameraInfo.deviceId
         ? { deviceId: { exact: cameraInfo.deviceId } }
