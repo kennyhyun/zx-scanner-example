@@ -10,6 +10,7 @@ import {
   toggleCamera,
   connectCameraToVideo,
 } from "../controller/camera";
+import { drawRect } from "../controller/canvas";
 
 const CameraInfo = ({ info = {}, sx }) => {
   const { settings, capability } = info;
@@ -82,7 +83,11 @@ export const QrVideo = ({
       }
       await new Promise(res => setTimeout(res, scanningIntervalMs));
       await capture(videoRef.current, canvasRef.current);
-      const { code } = await scanCanvas(canvasRef.current).catch(e => ({}));
+      const { code, position } = await scanCanvas(canvasRef.current).catch(
+        e => ({})
+      );
+      if (position) drawRect({ canvas: canvasRef.current, position });
+
       if (code) {
         console.log("scanned", code);
         if (!context.scanned.includes(code)) {
