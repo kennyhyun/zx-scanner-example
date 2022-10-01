@@ -4,6 +4,7 @@ const handleMediaStream = async (stream, { video, zoom }) => {
   console.log("Camera is loaded", stream);
   video.srcObject = stream;
   const [track] = stream.getVideoTracks();
+  if (!context.track) context.track = track;
   const settings = track.getSettings() || {};
   const capability = track.getCapabilities();
   const { width = 1, height = 1 } = settings;
@@ -12,7 +13,7 @@ const handleMediaStream = async (stream, { video, zoom }) => {
   if (zoom && "zoom" in settings) {
     const {
       zoom: { max: maxZoom, min: minZoom, step: zoomStep },
-    } = track.getCapabilities();
+    } = capability;
     const getZoomValue = num => {
       const zoomValue = minZoom + num * zoomStep;
       return Math.min(zoomValue, maxZoom);
@@ -24,10 +25,9 @@ const handleMediaStream = async (stream, { video, zoom }) => {
       getZoomValue(step)
     );
     track.applyConstraints({ advanced: [{ zoom: getZoomValue(step) }] });
-    return { settings: track.getSettings(), capability };
+    return { settings: track.getSettings(), capability, track };
   }
-  return { settings, capability };
-  return {};
+  return { settings, capability, track };
 };
 
 const openStream = async ({ cameraInfo = {}, getUserMedia, video, zoom }) => {
@@ -72,6 +72,7 @@ export const toggleCamera = async ({ video, zoom }) => {
     const newIndex = (idx + 1) % cameras.length;
     const newCamera = context.cameras[newIndex] || context.cameras[0];
     if (newCamera !== context.current) {
+      context.track?.stop();
       const resp = await openStream({
         cameraInfo: context.current,
         getUserMedia: context.getUserMedia,
@@ -82,6 +83,7 @@ export const toggleCamera = async ({ video, zoom }) => {
         return {};
       });
       if (!resp.settings) return context.cameraContext || {};
+      context.track = resp.track;
       context.current = newCamera;
       context.cameraContext = resp;
       return resp;
