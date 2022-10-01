@@ -129,7 +129,7 @@ export const connectCameraToVideo = async (video, { zoom = 0 } = {}) => {
     const cameras = devices.filter(i => i.kind === "videoinput");
     context.cameras = cameras;
     console.log("cameras:", cameras);
-    context.current = context.cameras[0];
+    context.current = context.cameras.slice(-1)[0];
   }
 
   return openStream({

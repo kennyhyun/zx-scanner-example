@@ -59,7 +59,7 @@ export const QrVideo = ({
   scanningIntervalMs = 100,
   setCanvas = () => {},
   result = { code: "", error: 0 },
-  zoom = 0.6,
+  zoom = 0,
   canvasScale: scale = 2,
 }) => {
   const scrollRef = React.useRef(null);

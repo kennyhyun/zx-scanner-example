@@ -66,7 +66,7 @@ export const ImageScanner = () => {
             return `Scanned ${items.length} images`;
         }
       })()}
-      {step > 1 && <QrCamera />}
+      {step > 1 && <QrCamera zoom={0.4} />}
       <MasonryImageList
         items={items}
         onRendered={() => tryScan(s => setStep(s))}
