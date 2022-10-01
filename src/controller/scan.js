@@ -27,7 +27,7 @@ const newScanCanvas = async canvas => {
     });
   }
   const { pixmap } = context;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   var { data: rgba } = ctx.getImageData(0, 0, width, height);
   zxing.HEAPU8.set(rgba, pixmap.ptr);
   if (!quiet) console.time("scanCode");
@@ -61,7 +61,7 @@ export const scanCanvas = async canvas => {
   if (!ZXing.addFunction) {
     return newScanCanvas(canvas);
   }
-  const context = canvas.getContext("2d");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
   const { width, height } = canvas;
   var { data: rgba } = context.getImageData(0, 0, width, height);
   // console.log("--- scanCanvas", canvas);

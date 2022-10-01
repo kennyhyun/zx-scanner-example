@@ -1,36 +1,32 @@
 export const context = { cameras: [] };
 
 const handleMediaStream = async (stream, { video, zoom }) => {
-  try {
-    console.log("Camera is loaded", stream);
-    video.srcObject = stream;
-    const [track] = stream.getVideoTracks();
-    const settings = track.getSettings() || {};
-    const capability = track.getCapabilities();
-    const { width = 1, height = 1 } = settings;
-    const newWidth = (video.height * width) / height;
-    Object.assign(video, { width: Math.max(100, newWidth) });
-    if (zoom && "zoom" in settings) {
-      const {
-        zoom: { max: maxZoom, min: minZoom, step: zoomStep },
-      } = track.getCapabilities();
-      const getZoomValue = num => {
-        const zoomValue = minZoom + num * zoomStep;
-        return Math.min(zoomValue, maxZoom);
-      };
-      const steps = (maxZoom - minZoom) / zoomStep;
-      const step = parseInt(steps * zoom, 10);
-      console.log(
-        `Setting zoom value(${step}) out of ${steps}`,
-        getZoomValue(step)
-      );
-      track.applyConstraints({ advanced: [{ zoom: getZoomValue(step) }] });
-      return { settings: track.getSettings(), capability };
-    }
-    return { settings, capability };
-  } catch (e) {
-    console.error("Error with handling video:", e);
+  console.log("Camera is loaded", stream);
+  video.srcObject = stream;
+  const [track] = stream.getVideoTracks();
+  const settings = track.getSettings() || {};
+  const capability = track.getCapabilities();
+  const { width = 1, height = 1 } = settings;
+  const newWidth = (video.height * width) / height;
+  Object.assign(video, { width: Math.max(100, newWidth) });
+  if (zoom && "zoom" in settings) {
+    const {
+      zoom: { max: maxZoom, min: minZoom, step: zoomStep },
+    } = track.getCapabilities();
+    const getZoomValue = num => {
+      const zoomValue = minZoom + num * zoomStep;
+      return Math.min(zoomValue, maxZoom);
+    };
+    const steps = (maxZoom - minZoom) / zoomStep;
+    const step = parseInt(steps * zoom, 10);
+    console.log(
+      `Setting zoom value(${step}) out of ${steps}`,
+      getZoomValue(step)
+    );
+    track.applyConstraints({ advanced: [{ zoom: getZoomValue(step) }] });
+    return { settings: track.getSettings(), capability };
   }
+  return { settings, capability };
   return {};
 };
 
@@ -85,8 +81,9 @@ export const toggleCamera = async ({ video, zoom }) => {
         console.error("error toggle camera:", e.message);
         return {};
       });
-      if (!resp.settings) return {};
+      if (!resp.settings) return context.cameraContext || {};
       context.current = newCamera;
+      context.cameraContext = resp;
       return resp;
     }
   } catch (e) {
