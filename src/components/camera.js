@@ -68,6 +68,7 @@ export const QrVideo = ({
   const { current: context } = React.useRef({ scanned: [], counter: 0 });
   const [scanned, setScanned] = React.useState(0);
   const [errorMessage, setErrorMessage] = React.useState("");
+  const [cameraErrorMessage, setCameraErrorMessage] = React.useState("");
   const [cameraInfo, setCameraInfo] = React.useState({});
   const scrollTo = () => {
     const { current: node } = scrollRef;
@@ -89,7 +90,7 @@ export const QrVideo = ({
       if (video && canvas) {
         await capture(video, canvas, { scale }).catch(e => {
           if (e) {
-            setErrorMessage(e.stack);
+            setCameraErrorMessage(e.stack);
           }
         });
         const { code, position } = await scanCanvas(canvas).catch(e => {
@@ -169,6 +170,7 @@ export const QrVideo = ({
           }}
         ></video>
         <CameraInfo
+          error={cameraErrorMessage}
           info={cameraInfo}
           sx={{ width, height, overflow: "auto" }}
         />
