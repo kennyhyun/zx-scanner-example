@@ -6,7 +6,7 @@ const bufferLength = ({ width, height }) => {
 const newScanCanvas = async canvas => {
   const { zXingContext: context } = window;
   const { zxing, format, quiet } = context;
-  if (!zxing) throw new Error("ZXing is not initialised");
+  if (!zxing) throw new Error("zxing is not initialised");
 
   const { width, height } = canvas;
   const length = bufferLength({ width, height });
@@ -18,7 +18,7 @@ const newScanCanvas = async canvas => {
     };
   } else if (context.pixmap.length < length) {
     const { pixmap } = context;
-    if (!quiet) console.log("-- free", pixmap.ptr);
+    if (!quiet) console.log("-- free", pixmap.length, pixmap.ptr);
     zxing._free(pixmap.ptr);
     if (!quiet) console.log("-- malloc", length);
     Object.assign(pixmap, {
@@ -27,7 +27,7 @@ const newScanCanvas = async canvas => {
     });
   }
   const { pixmap } = context;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   var { data: rgba } = ctx.getImageData(0, 0, width, height);
   zxing.HEAPU8.set(rgba, pixmap.ptr);
   if (!quiet) console.time("scanCode");
@@ -56,13 +56,12 @@ const newScanCanvas = async canvas => {
 
 export const scanCanvas = async canvas => {
   const {
-    ZXing,
-    zXingContext: { decodePtr },
+    zXingContext: { decodePtr, zxing: ZXing },
   } = window;
   if (!ZXing.addFunction) {
     return newScanCanvas(canvas);
   }
-  const context = canvas.getContext("2d");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
   const { width, height } = canvas;
   var { data: rgba } = context.getImageData(0, 0, width, height);
   // console.log("--- scanCanvas", canvas);

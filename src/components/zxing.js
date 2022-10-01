@@ -22,11 +22,9 @@ if (typeof window !== "undefined") {
   window.Module = {
     locateFile: () => `${PUBLIC_URL}/zxing.wasm`,
     onRuntimeInitialized: function() {
-      window.ZXing = window.Module;
-      window.zXingContext.decodePtr = window.ZXing.addFunction(
-        decodeCallback,
-        "viii"
-      );
+      const zxing = window.Module;
+      window.zXingContext.zxing = zxing;
+      window.zXingContext.decodePtr = zxing.addFunction(decodeCallback, "viii");
     },
   };
 }

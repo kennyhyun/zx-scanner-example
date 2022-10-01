@@ -16,10 +16,11 @@ let scanned = false;
 const debounceTimeMs = 1000;
 let retryCount = 0;
 const tryScan = debounce(async cbExecuted => {
-  if (scanned) {
-    return;
-  }
-  if (typeof window !== "undefined" && !window.ZXing) {
+  if (typeof window === "undefined" || scanned) return;
+  const {
+    zXingContext: { zxing },
+  } = window;
+  if (!zxing) {
     retryCount += 1;
     if (retryCount > 5) {
       console.error("Could not find ZXing");
@@ -40,11 +41,11 @@ const tryScan = debounce(async cbExecuted => {
   console.time(message);
   await [...canvasMap.keys()].reduce(async (p, canvas) => {
     await p;
-    const { code, error } = await scanCanvas(canvas).catch(e =>
+    const resp = await scanCanvas(canvas).catch(e =>
       e?.message ? { error: e.message } : e
     );
     const url = canvasMap.get(canvas);
-    result.set(url, { code, error });
+    result.set(url, resp);
   }, Promise.resolve());
   console.timeEnd(message);
   cbExecuted(2);
@@ -65,7 +66,7 @@ export const ImageScanner = () => {
             return `Scanned ${items.length} images`;
         }
       })()}
-      {step > 1 && <QrCamera />}
+      {step > 1 && <QrCamera zoom={0.4} />}
       <MasonryImageList
         items={items}
         onRendered={() => tryScan(s => setStep(s))}

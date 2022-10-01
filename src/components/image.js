@@ -1,17 +1,18 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import React from "react";
+import { drawRect } from "../controller/canvas";
 
 export const QrImage = ({
   url = "",
   title = "",
   setCanvas = () => {},
-  result = { code: "", error: 0 },
+  result = { code: "", error: 0, position: null },
 }) => {
   const canvasRef = React.useRef(null);
   const [showCanvas, setCanvasVisibility] = React.useState(false);
   const toggleCanvas = () => setCanvasVisibility(!showCanvas);
-  const drawCanvas = e => {
+  const copyCanvas = e => {
     const { current: canvas } = canvasRef;
     const image = e.target;
     const { width, height } = image;
@@ -21,6 +22,8 @@ export const QrImage = ({
     // ctx.filter = "brightness(100%) grayscale(100%)";
     ctx.drawImage(image, 0, 0);
   };
+  if (result.position)
+    drawRect({ canvas: canvasRef.current, position: result.position });
   const textStyle = {
     overflowWrap: "anywhere",
   };
@@ -49,7 +52,7 @@ export const QrImage = ({
           style={{ display: showCanvas ? "flex" : "none" }}
           ref={canvasRef}
         ></canvas>
-        <img onLoad={drawCanvas} src={url} alt={title} loading="lazy" />
+        <img onLoad={copyCanvas} src={url} alt={title} loading="lazy" />
         <Box
           sx={{
             position: "absolute",

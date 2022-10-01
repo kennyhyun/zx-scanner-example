@@ -10,8 +10,9 @@ import {
   toggleCamera,
   connectCameraToVideo,
 } from "../controller/camera";
+import { drawRect } from "../controller/canvas";
 
-const CameraInfo = ({ info = {}, sx }) => {
+const CameraInfo = ({ info = {}, sx, error }) => {
   const { settings, capability } = info;
   const { deviceId = "" } = settings || {};
   if (!deviceId) return <></>;
@@ -19,6 +20,7 @@ const CameraInfo = ({ info = {}, sx }) => {
     cameraContext.cameras.find(i => i.deviceId === deviceId) || {};
   return (
     <Box sx={sx}>
+      <Typography>{error}</Typography>
       <Typography>{deviceInfo.label}</Typography>
       {JSON.stringify(omit(["deviceId", "groupId"], settings), null, 2)
         .split("\n")
@@ -39,14 +41,14 @@ const CameraInfo = ({ info = {}, sx }) => {
   );
 };
 
-const capture = async (video, canvas) => {
+const capture = async (video, canvas, { scale = 2 } = {}) => {
   if (!video) return;
   if (!canvas) return;
-  const { width, height } = video;
-  Object.assign(canvas, { width, height });
-  const ctx = canvas.getContext("2d");
+  const { width, height } = video || {};
+  Object.assign(canvas, { width: width * scale, height: height * scale });
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   // ctx.filter = "contrast(120%) grayscale(100%)";
-  ctx.drawImage(video, 0, 0, width, height);
+  ctx.drawImage(video, 0, 0, width * scale, height * scale);
 };
 
 export const QrVideo = ({
@@ -57,7 +59,8 @@ export const QrVideo = ({
   scanningIntervalMs = 100,
   setCanvas = () => {},
   result = { code: "", error: 0 },
-  zoom = 0.6,
+  zoom = 0,
+  canvasScale: scale = 2,
 }) => {
   const scrollRef = React.useRef(null);
   const canvasRef = React.useRef(null);
@@ -65,6 +68,7 @@ export const QrVideo = ({
   const { current: context } = React.useRef({ scanned: [], counter: 0 });
   const [scanned, setScanned] = React.useState(0);
   const [errorMessage, setErrorMessage] = React.useState("");
+  const [cameraErrorMessage, setCameraErrorMessage] = React.useState("");
   const [cameraInfo, setCameraInfo] = React.useState({});
   const scrollTo = () => {
     const { current: node } = scrollRef;
@@ -81,17 +85,32 @@ export const QrVideo = ({
         if (window.zXingContext) window.zXingContext.quiet = true;
       }
       await new Promise(res => setTimeout(res, scanningIntervalMs));
-      await capture(videoRef.current, canvasRef.current);
-      const { code } = await scanCanvas(canvasRef.current).catch(e => ({}));
-      if (code) {
-        console.log("scanned", code);
-        if (!context.scanned.includes(code)) {
-          context.scanned.push(code);
+      const { current: video } = videoRef;
+      const { current: canvas } = canvasRef;
+      if (video && canvas) {
+        await capture(video, canvas, { scale }).catch(e => {
+          if (e) {
+            setCameraErrorMessage(e.stack);
+          }
+        });
+        const { code, position } = await scanCanvas(canvas).catch(e => {
+          if (e) {
+            if (!e.message?.startsWith("Decode")) setErrorMessage(e.stack);
+          }
+          return {};
+        });
+        if (position) drawRect({ canvas, position });
+
+        if (code) {
+          console.log("scanned", code);
+          if (!context.scanned.includes(code)) {
+            context.scanned.push(code);
+          }
+          context.counter += 2;
+          setScanned(context.counter - 1);
+          setScanned(context.counter);
+          scrollTo();
         }
-        context.counter += 2;
-        setScanned(context.counter - 1);
-        setScanned(context.counter);
-        scrollTo();
       }
       if (!stop) scanningLoop();
       else console.log("stopping the loop");
@@ -151,12 +170,17 @@ export const QrVideo = ({
           }}
         ></video>
         <CameraInfo
+          error={cameraErrorMessage}
           info={cameraInfo}
           sx={{ width, height, overflow: "auto" }}
         />
       </Box>
       <Box sx={{ height, display: "flex" }}>
-        <canvas ref={canvasRef} {...{ width, height }}></canvas>
+        <canvas
+          ref={canvasRef}
+          {...{ width, height }}
+          style={{ width, height }}
+        ></canvas>
         <Fade in={!(scanned % 2)}>
           <Box
             sx={{

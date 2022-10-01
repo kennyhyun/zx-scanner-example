@@ -1,37 +1,33 @@
 export const context = { cameras: [] };
 
 const handleMediaStream = async (stream, { video, zoom }) => {
-  try {
-    console.log("Camera is loaded", stream);
-    video.srcObject = stream;
-    const [track] = stream.getVideoTracks();
-    const settings = track.getSettings();
-    const capability = track.getCapabilities();
-    const { width = 1, height = 1 } = settings;
-    const newWidth = (video.height * width) / height;
-    Object.assign(video, { width: Math.max(100, newWidth) });
-    if (zoom && "zoom" in settings) {
-      const {
-        zoom: { max: maxZoom, min: minZoom, step: zoomStep },
-      } = track.getCapabilities();
-      const getZoomValue = num => {
-        const zoomValue = minZoom + num * zoomStep;
-        return Math.min(zoomValue, maxZoom);
-      };
-      const steps = (maxZoom - minZoom) / zoomStep;
-      const step = parseInt(steps * zoom, 10);
-      console.log(
-        `Setting zoom value(${step}) out of ${steps}`,
-        getZoomValue(step)
-      );
-      track.applyConstraints({ advanced: [{ zoom: getZoomValue(step) }] });
-      return { settings: track.getSettings(), capability };
-    }
-    return { settings, capability };
-  } catch (e) {
-    console.error("Error with handling video:", e);
+  console.log("Camera is loaded", stream);
+  video.srcObject = stream;
+  const [track] = stream.getVideoTracks();
+  if (!context.track) context.track = track;
+  const settings = track.getSettings() || {};
+  const capability = track.getCapabilities();
+  const { width = 1, height = 1 } = settings;
+  const newWidth = (video.height * width) / height;
+  Object.assign(video, { width: Math.max(100, newWidth) });
+  if (zoom && "zoom" in settings) {
+    const {
+      zoom: { max: maxZoom, min: minZoom, step: zoomStep },
+    } = capability;
+    const getZoomValue = num => {
+      const zoomValue = minZoom + num * zoomStep;
+      return Math.min(zoomValue, maxZoom);
+    };
+    const steps = (maxZoom - minZoom) / zoomStep;
+    const step = parseInt(steps * zoom, 10);
+    console.log(
+      `Setting zoom value(${step}) out of ${steps}`,
+      getZoomValue(step)
+    );
+    track.applyConstraints({ advanced: [{ zoom: getZoomValue(step) }] });
+    return { settings: track.getSettings(), capability, track };
   }
-  return {};
+  return { settings, capability, track };
 };
 
 const openStream = async ({ cameraInfo = {}, getUserMedia, video, zoom }) => {
@@ -76,13 +72,21 @@ export const toggleCamera = async ({ video, zoom }) => {
     const newIndex = (idx + 1) % cameras.length;
     const newCamera = context.cameras[newIndex] || context.cameras[0];
     if (newCamera !== context.current) {
-      context.current = newCamera;
-      return openStream({
+      context.track?.stop();
+      const resp = await openStream({
         cameraInfo: context.current,
         getUserMedia: context.getUserMedia,
         video,
         zoom,
-      }).catch(e => console.error(e.message));
+      }).catch(e => {
+        console.error("error toggle camera:", e.message);
+        return {};
+      });
+      if (!resp.settings) return context.cameraContext || {};
+      context.track = resp.track;
+      context.current = newCamera;
+      context.cameraContext = resp;
+      return resp;
     }
   } catch (e) {
     console.error(e.message);
@@ -118,11 +122,14 @@ export const connectCameraToVideo = async (video, { zoom = 0 } = {}) => {
     ({ getUserMedia } = navigator.mediaDevices);
     getUserMedia = getUserMedia.bind(navigator.mediaDevices);
     context.getUserMedia = getUserMedia;
-    const devices = await navigator.mediaDevices.enumerateDevices();
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(e => {
+      console.warn("error enumerating devices", e.message);
+      return [];
+    });
     const cameras = devices.filter(i => i.kind === "videoinput");
     context.cameras = cameras;
     console.log("cameras:", cameras);
-    context.current = context.cameras[0];
+    context.current = context.cameras.slice(-1)[0];
   }
 
   return openStream({
