@@ -12,7 +12,7 @@ import {
 } from "../controller/camera";
 import { drawRect } from "../controller/canvas";
 
-const CameraInfo = ({ info = {}, sx }) => {
+const CameraInfo = ({ info = {}, sx, error }) => {
   const { settings, capability } = info;
   const { deviceId = "" } = settings || {};
   if (!deviceId) return <></>;
@@ -20,6 +20,7 @@ const CameraInfo = ({ info = {}, sx }) => {
     cameraContext.cameras.find(i => i.deviceId === deviceId) || {};
   return (
     <Box sx={sx}>
+      <Typography>{error}</Typography>
       <Typography>{deviceInfo.label}</Typography>
       {JSON.stringify(omit(["deviceId", "groupId"], settings), null, 2)
         .split("\n")
@@ -82,21 +83,32 @@ export const QrVideo = ({
         if (window.zXingContext) window.zXingContext.quiet = true;
       }
       await new Promise(res => setTimeout(res, scanningIntervalMs));
-      await capture(videoRef.current, canvasRef.current);
-      const { code, position } = await scanCanvas(canvasRef.current).catch(
-        e => ({})
-      );
-      if (position) drawRect({ canvas: canvasRef.current, position });
+      const { current: video } = videoRef;
+      const { current: canvas } = canvasRef;
+      if (video && canvas) {
+        await capture(video, canvas, { scale }).catch(e => {
+          if (e) {
+            setErrorMessage(e.stack);
+          }
+        });
+        const { code, position } = await scanCanvas(canvas).catch(e => {
+          if (e) {
+            if (!e.message?.startsWith("Decode")) setErrorMessage(e.stack);
+          }
+          return {};
+        });
+        if (position) drawRect({ canvas, position });
 
-      if (code) {
-        console.log("scanned", code);
-        if (!context.scanned.includes(code)) {
-          context.scanned.push(code);
+        if (code) {
+          console.log("scanned", code);
+          if (!context.scanned.includes(code)) {
+            context.scanned.push(code);
+          }
+          context.counter += 2;
+          setScanned(context.counter - 1);
+          setScanned(context.counter);
+          scrollTo();
         }
-        context.counter += 2;
-        setScanned(context.counter - 1);
-        setScanned(context.counter);
-        scrollTo();
       }
       if (!stop) scanningLoop();
       else console.log("stopping the loop");
@@ -161,7 +173,11 @@ export const QrVideo = ({
         />
       </Box>
       <Box sx={{ height, display: "flex" }}>
-        <canvas ref={canvasRef} {...{ width, height }}></canvas>
+        <canvas
+          ref={canvasRef}
+          {...{ width, height }}
+          style={{ width, height }}
+        ></canvas>
         <Fade in={!(scanned % 2)}>
           <Box
             sx={{

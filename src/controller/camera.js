@@ -5,7 +5,7 @@ const handleMediaStream = async (stream, { video, zoom }) => {
     console.log("Camera is loaded", stream);
     video.srcObject = stream;
     const [track] = stream.getVideoTracks();
-    const settings = track.getSettings();
+    const settings = track.getSettings() || {};
     const capability = track.getCapabilities();
     const { width = 1, height = 1 } = settings;
     const newWidth = (video.height * width) / height;
@@ -76,13 +76,18 @@ export const toggleCamera = async ({ video, zoom }) => {
     const newIndex = (idx + 1) % cameras.length;
     const newCamera = context.cameras[newIndex] || context.cameras[0];
     if (newCamera !== context.current) {
-      context.current = newCamera;
-      return openStream({
+      const resp = await openStream({
         cameraInfo: context.current,
         getUserMedia: context.getUserMedia,
         video,
         zoom,
-      }).catch(e => console.error(e.message));
+      }).catch(e => {
+        console.error("error toggle camera:", e.message);
+        return {};
+      });
+      if (!resp.settings) return {};
+      context.current = newCamera;
+      return resp;
     }
   } catch (e) {
     console.error(e.message);
@@ -118,7 +123,10 @@ export const connectCameraToVideo = async (video, { zoom = 0 } = {}) => {
     ({ getUserMedia } = navigator.mediaDevices);
     getUserMedia = getUserMedia.bind(navigator.mediaDevices);
     context.getUserMedia = getUserMedia;
-    const devices = await navigator.mediaDevices.enumerateDevices();
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(e => {
+      console.warn("error enumerating devices", e.message);
+      return [];
+    });
     const cameras = devices.filter(i => i.kind === "videoinput");
     context.cameras = cameras;
     console.log("cameras:", cameras);
