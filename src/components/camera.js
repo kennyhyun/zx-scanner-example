@@ -158,6 +158,7 @@ export const QrVideo = ({
           ref={videoRef}
           {...{ width, height }}
           autoPlay
+          playsInline
           onClick={async () => {
             const info = await toggleCamera({
               video: videoRef.current,
